@@ -2,4 +2,6 @@ venv/
 build/
 .idea/
 dist/
-pysparkle/__pycache__/
+__pycache__/*
+*.egg-info/*
+WinSparkle.dll

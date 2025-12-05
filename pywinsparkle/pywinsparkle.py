@@ -1,7 +1,6 @@
-""" A wrapper for the WinSparkle project
+"""A wrapper for the WinSparkle project"""
 
-"""
-from ctypes import cdll, c_char_p, c_wchar_p, c_int16, c_int64, CFUNCTYPE
+from ctypes import cdll, c_char_p, c_wchar_p, c_int, c_int16, c_int64, CFUNCTYPE
 import os
 import sys
 import platform
@@ -15,7 +14,7 @@ elif architecture == "32bit":
 
 
 # compatibility with pyinstaller, else running live
-if getattr( sys, 'frozen', False ):
+if getattr(sys, "frozen", False):
     THIS_DIRECTORY = sys._MEIPASS
     DLL_FILE = os.path.join(THIS_DIRECTORY, "WinSparkle")
 
@@ -31,8 +30,9 @@ if os.name == "nt":
 else:
     dll = None
 
+
 def win_sparkle_init():
-    """ Starts WinSparkle.
+    """Starts WinSparkle.
 
     If WinSparkle is configured to check for updates on startup, proceeds
     to perform the check. You should only call this function when your app
@@ -48,7 +48,7 @@ def win_sparkle_init():
 
 
 def win_sparkle_cleanup():
-    """ Cleans up after WinSparkle.
+    """Cleans up after WinSparkle.
 
     Should be called by the app when it's shutting down. Cancels any
     pending Sparkle operations and shuts down its helper threads.
@@ -60,20 +60,36 @@ def win_sparkle_cleanup():
 
 
 def win_sparkle_set_lang(language):
-    """ Sets UI language from its Win32 LANGID code.
-    
+    """Sets UI language from its ISO code.
+
     This function must be called before win_sparkle_init().
-    :param language: An int, Language code (LANGID) as created by the MAKELANGID macro
-    or returned by e.g. ::GetThreadUILanguage()
+    :param language: ISO 639 language code with an optional ISO 3116 country
+                     code, e.g. "fr", "pt-PT", "pt-BR" or "pt_BR", as used
+                     e.g. by ::GetThreadPreferredUILanguages() too.
+    @since 0.5
     """
 
     dll.win_sparkle_set_lang.restype = None
-    dll.win_sparkle_set_lang.argtypes = [c_int16]
-    dll.win_sparkle_set_lang(language)
+    dll.win_sparkle_set_lang.argtypes = [c_char_p]
+    dll.win_sparkle_set_lang(language.encode())
+
+
+def win_sparkle_set_langid(lang):
+    """Sets UI language from its Win32 LANGID code.
+
+    This function must be called before win_sparkle_init().
+    :param lang: An int, Language code (LANGID) as created by the MAKELANGID macro
+                 or returned by e.g. ::GetThreadUILanguage()
+    @since 0.5
+    """
+
+    dll.win_sparkle_set_langid.restype = None
+    dll.win_sparkle_set_langid.argtypes = [c_int16]
+    dll.win_sparkle_set_langid(lang)
 
 
 def win_sparkle_set_appcast_url(url):
-    """  Sets URL for the app's appcast. Only http and https schemes are supported.
+    """Sets URL for the app's appcast. Only http and https schemes are supported.
 
     If this function isn't called by the app, the URL is obtained from
     Windows resource named "FeedURL" of type "APPCAST".
@@ -91,7 +107,7 @@ def win_sparkle_set_appcast_url(url):
 
 
 def win_sparkle_set_app_details(company_name, app_name, app_version):
-    """ Sets application metadata.
+    """Sets application metadata.
 
     Normally, these are taken from VERSIONINFO/StringFileInfo resources,
     but if your application doesn't use them for some reason, using this
@@ -111,13 +127,17 @@ def win_sparkle_set_app_details(company_name, app_name, app_version):
     dll.win_sparkle_set_app_details.argtypes = [c_wchar_p, c_wchar_p, c_wchar_p]
     dll.win_sparkle_set_app_details(company_name, app_name, app_version)
 
+
 def win_sparkle_set_dsa_pub_pem(dsa_pub_pem):
-    """     Sets DSA public key.
+    """Sets DSA public key.
     Only PEM format is supported.
     Public key will be used to verify DSA signature of the update file.
     PEM data will be set only if it contains valid DSA public key.
     If this function isn't called by the app, public key is obtained from
     Windows resource named "DSAPub" of type "DSAPEM".
+
+    @deprecated DSA signatures are deprecated and will be removed in a future version.
+                Migrate over to EdDSA (ed25519).
     @param dsa_pub_pem  DSA public key in PEM format.
     @return  1 if valid DSA public key provided, 0 otherwise.
     @since 0.6.0
@@ -129,8 +149,34 @@ def win_sparkle_set_dsa_pub_pem(dsa_pub_pem):
 
     return result
 
+
+def win_sparkle_set_eddsa_public_key(pubkey):
+    """Sets EdDSA public key.
+
+    Only base64 encoded format is supported.
+    Public key will be used to verify EdDSA signature of the update file.
+    It will be set only if it contains valid EdDSA public key.
+    If this function isn't called by the app, public key is obtained from
+    Windows resource named "EdDSAPub" of type "EDDSA".
+
+    @note If this function is called, DSA public key set with
+          win_sparkle_set_dsa_pub_pem() or present in the resources will be
+          ignored; so will DSA signatures in the appcast.
+
+    @param pubkey  EdDSA public key in base64 encoded format.
+    @return  1 if valid EdDSA public key provided, 0 otherwise.
+    @since 0.9.0
+    """
+
+    dll.win_sparkle_set_eddsa_public_key.restype = c_int64
+    dll.win_sparkle_set_eddsa_public_key.argtypes = [c_char_p]
+    result = dll.win_sparkle_set_eddsa_public_key(pubkey.encode())
+
+    return result
+
+
 def win_sparkle_set_app_build_version(build_number):
-    """ Sets application build version number.
+    """Sets application build version number.
 
     This is the internal version number that is not normally shown to the user.
     It can be used for finer granularity that official release versions, e.g. for
@@ -151,8 +197,32 @@ def win_sparkle_set_app_build_version(build_number):
     dll.win_sparkle_set_app_build_version(build_number)
 
 
+def win_sparkle_set_http_header(name, value):
+    """Set custom HTTP header for appcast checks.
+
+    :param name: Header name
+    :param value: Header value
+    @since 0.7
+    """
+
+    dll.win_sparkle_set_http_header.restype = None
+    dll.win_sparkle_set_http_header.argtypes = [c_char_p, c_char_p]
+    dll.win_sparkle_set_http_header(name.encode(), value.encode())
+
+
+def win_sparkle_clear_http_headers():
+    """Clears all custom HTTP headers previously added using
+    win_sparkle_set_http_header().
+
+    @since 0.7
+    """
+
+    dll.win_sparkle_clear_http_headers.restype = None
+    dll.win_sparkle_clear_http_headers()
+
+
 def win_sparkle_set_registry_path(registry_path):
-    """ Set the registry path where settings will be stored.
+    """Set the registry path where settings will be stored.
 
     Normally, these are stored in
     "HKCU\Software\<company_name>\<app_name>\WinSparkle"
@@ -171,53 +241,57 @@ def win_sparkle_set_registry_path(registry_path):
     dll.win_sparkle_set_registry_path.argtypes = [c_wchar_p]
     dll.win_sparkle_set_registry_path(registry_path)
 
+
 def win_sparkle_get_automatic_check_for_updates():
-    """     Gets the automatic update checking state
+    """Gets the automatic update checking state
+
     @return  1 if updates are set to be checked automatically, 0 otherwise
     @note Defaults to 0 when not yet configured (as happens on first start).
     @since 0.4
-
     """
 
-    dll.win_sparkle_get_automatic_check_for_updates.restype = c_int64
+    dll.win_sparkle_get_automatic_check_for_updates.restype = c_int
     dll.win_sparkle_get_automatic_check_for_updates.argtypes = None
     result = dll.win_sparkle_get_automatic_check_for_updates()
 
     return result
 
+
 def win_sparkle_set_automatic_check_for_updates(update_state):
-    """ Sets whether updates are checked automatically or only through a manual call.
+    """Sets whether updates are checked automatically or only through a manual call.
     If disabled, win_sparkle_check_update_with_ui() must be used explicitly.
 
     :param update_state: 1 to have updates checked automatically, 0 otherwise
+    @since 0.4
     """
 
     dll.win_sparkle_set_automatic_check_for_updates.restype = None
-    dll.win_sparkle_set_automatic_check_for_updates.argtypes = [c_int64]
+    dll.win_sparkle_set_automatic_check_for_updates.argtypes = [c_int]
     dll.win_sparkle_set_automatic_check_for_updates(update_state)
 
-    #return result
 
 def win_sparkle_set_update_check_interval(interval):
-    """ Sets the automatic update interval.
+    """Sets the automatic update interval.
 
     :param interval: interval The interval in seconds between checks for updates.
                      The minimum update interval is 3600 seconds (1 hour).
+    @since 0.4
     """
 
     dll.win_sparkle_set_update_check_interval.restype = None
-    dll.win_sparkle_set_update_check_interval.argtypes = [c_int64]
+    dll.win_sparkle_set_update_check_interval.argtypes = [c_int]
     dll.win_sparkle_set_update_check_interval(interval)
 
 
 def win_sparkle_get_update_check_interval():
-    """ Gets the time for the last update check.
+    """Gets the automatic update interval in seconds.
 
-    Default value is -1, indicating that the update check has never run.
+    Default value is one day.
 
+    @since 0.4
     """
 
-    dll.win_sparkle_get_update_check_interval.restype = c_int64
+    dll.win_sparkle_get_update_check_interval.restype = c_int
     dll.win_sparkle_get_update_check_interval.argtypes = None
     result = dll.win_sparkle_get_update_check_interval()
 
@@ -225,22 +299,23 @@ def win_sparkle_get_update_check_interval():
 
 
 def win_sparkle_get_last_check_time():
-    """ Gets the time for the last update check.
+    """Gets the time for the last update check.
 
     Default value is -1, indicating that the update check has never run.
 
     :return: Time in seconds since unix epoch
+    @since 0.4
     """
 
     dll.win_sparkle_get_last_check_time.restype = c_int64
-    dll.win_sparkle_get_last_check_time.argtypes = [None]
+    dll.win_sparkle_get_last_check_time.argtypes = None
     result = dll.win_sparkle_get_last_check_time()
 
     return result
 
 
 def win_sparkle_set_error_callback(app_callback):
-    """ Set callback to be called when the updater encounters an error.
+    """Set callback to be called when the updater encounters an error.
 
     :param app_callback: The function name that should called
     """
@@ -254,7 +329,7 @@ def win_sparkle_set_error_callback(app_callback):
 
 
 def win_sparkle_set_can_shutdown_callback(app_callback):
-    """ Set callback for querying the application if it can be closed.
+    """Set callback for querying the application if it can be closed.
 
     This callback will be called to ask the host if it's ready to shut down,
     before attempting to launch the installer. The callback returns TRUE if
@@ -277,7 +352,7 @@ def win_sparkle_set_can_shutdown_callback(app_callback):
 
 
 def win_sparkle_set_shutdown_request_callback(app_callback):
-    """ Set callback for shutting down the application.
+    """Set callback for shutting down the application.
 
     This callback will be called to ask the host to shut down immediately after
     launching the installer. Its implementation should gracefully terminate the
@@ -302,7 +377,7 @@ def win_sparkle_set_shutdown_request_callback(app_callback):
 
 
 def win_sparkle_set_did_find_update_callback(app_callback):
-    """ Set callback to be called when the updater did find an update.
+    """Set callback to be called when the updater did find an update.
 
     This is useful in combination with
     win_sparkle_check_update_with_ui_and_install() as it allows you to perform
@@ -320,7 +395,7 @@ def win_sparkle_set_did_find_update_callback(app_callback):
 
 
 def win_sparkle_set_did_not_find_update_callback(app_callback):
-    """ Set callback to be called when the updater did not find an update.
+    """Set callback to be called when the updater did not find an update.
 
     This is useful in combination with
     win_sparkle_check_update_with_ui_and_install() as it allows you to perform
@@ -338,13 +413,16 @@ def win_sparkle_set_did_not_find_update_callback(app_callback):
 
 
 def win_sparkle_set_update_cancelled_callback(app_callback):
-    """ Set callback to be called when the user cancels a download.
+    """Set callback to be called when the user cancels an update, e.g.
+    by closing the window, skipping an update or cancelling download.
+    This callback is not called when there's no update to install or an error occurs.
 
     This is useful in combination with
     win_sparkle_check_update_with_ui_and_install() as it allows you to perform
     some action when the installation is interrupted.
 
     :param app_callback: The function name that should called
+    @since 0.5
     """
 
     me = win_sparkle_set_update_cancelled_callback
@@ -353,8 +431,92 @@ def win_sparkle_set_update_cancelled_callback(app_callback):
     dll.win_sparkle_set_update_cancelled_callback.argtypes = []
     dll.win_sparkle_set_update_cancelled_callback(callback_fucntion)
 
+
+def win_sparkle_set_update_skipped_callback(app_callback):
+    """Set callback to be called when the user skips an update.
+
+    This is useful in combination with win_sparkle_check_update_with_ui() or
+    similar as it allows you to perform some action when the update is skipped.
+
+    :param app_callback: The function name that should called
+    @since 0.8
+    """
+
+    me = win_sparkle_set_update_skipped_callback
+    callback_function = _callback_function_helper(me, app_callback)
+    dll.win_sparkle_set_update_skipped_callback.restype = None
+    dll.win_sparkle_set_update_skipped_callback.argtypes = []
+    dll.win_sparkle_set_update_skipped_callback(callback_function)
+
+
+def win_sparkle_set_update_postponed_callback(app_callback):
+    """Set callback to be called when the user postpones an update
+    (presses 'remind me later' button).
+
+    This is useful in combination with win_sparkle_check_update_with_ui() or
+    similar as it allows you to perform some action when the download is postponed.
+
+    :param app_callback: The function name that should called
+    @since 0.8
+    """
+
+    me = win_sparkle_set_update_postponed_callback
+    callback_function = _callback_function_helper(me, app_callback)
+    dll.win_sparkle_set_update_postponed_callback.restype = None
+    dll.win_sparkle_set_update_postponed_callback.argtypes = []
+    dll.win_sparkle_set_update_postponed_callback(callback_function)
+
+
+def win_sparkle_set_update_dismissed_callback(app_callback):
+    """Set callback to be called when the user dismisses (closes) update dialog,
+    including when there were no updates or an error occurred.
+
+    This is useful in combination with win_sparkle_check_update_with_ui() or
+    similar as it allows you to perform some action when the update dialog is closed.
+
+    :param app_callback: The function name that should called
+    @since 0.8
+    """
+
+    me = win_sparkle_set_update_dismissed_callback
+    callback_function = _callback_function_helper(me, app_callback)
+    dll.win_sparkle_set_update_dismissed_callback.restype = None
+    dll.win_sparkle_set_update_dismissed_callback.argtypes = []
+    dll.win_sparkle_set_update_dismissed_callback(callback_function)
+
+
+def win_sparkle_set_user_run_installer_callback(app_callback):
+    """Set callback to be called when the update payload is downloaded and
+    ready to be executed or handled in some other manner.
+
+    The callback should return:
+    - 1 if the file was handled by the callback
+    - 0 if it was not, in which case WinSparkle default handling will take place
+    - -1 (WINSPARKLE_RETURN_ERROR) in case of an error
+
+    :param app_callback: The function name that should called,
+                         which should accept one parameter (wchar_t* file path)
+                         and return an int
+    @since 0.8
+    """
+
+    me = win_sparkle_set_user_run_installer_callback
+    # This callback has different signature - it takes a wchar_t* parameter and returns int
+    prototype = CFUNCTYPE(c_int, c_wchar_p)
+    callback_function = prototype(app_callback)
+
+    # store reference to function inside function attributes
+    if not hasattr(me, "callback_function"):
+        me.callback_function = None
+    me.callback_function = callback_function
+
+    dll.win_sparkle_set_user_run_installer_callback.restype = None
+    dll.win_sparkle_set_user_run_installer_callback.argtypes = [prototype]
+    dll.win_sparkle_set_user_run_installer_callback(callback_function)
+
+
 def _callback_function_helper(wrapper_function, user_callback_funcion):
-    """ A helper function and should not be used outside the module.
+    """A helper function and should not be used outside the module.
 
     When declaring these function pointers inside the wraper function, it is
     necessary to store a reference somewhere or else it will be garbage collected.
@@ -379,7 +541,7 @@ def _callback_function_helper(wrapper_function, user_callback_funcion):
 
 
 def win_sparkle_check_update_with_ui():
-    """ Checks if an update is available, showing progress UI to the user.
+    """Checks if an update is available, showing progress UI to the user.
 
     Normally, WinSparkle checks for updates on startup and only shows its UI
     when it finds an update. If the application disables this behavior, it
@@ -398,7 +560,7 @@ def win_sparkle_check_update_with_ui():
 
 
 def win_sparkle_check_update_with_ui_and_install():
-    """ Checks if an update is available, showing progress UI to the user and
+    """Checks if an update is available, showing progress UI to the user and
     immediately installing the update if one is available.
 
     This is useful for the case when users should almost always use the
@@ -417,7 +579,7 @@ def win_sparkle_check_update_with_ui_and_install():
 
 
 def win_sparkle_check_update_without_ui():
-    """ Checks if an update is available.
+    """Checks if an update is available.
 
     No progress UI is shown to the user when checking. If an update is
     available, the usual "update available" window is shown; this function

@@ -1,23 +1,20 @@
-PyWinSparkle
-============
-
+# PyWinSparkle
 
 ### About pywinsparkle
 
 An auto-update framework for frozen Python applications on Windows.
 
-Pywinsparkle is a wrapper for the WinSparkle project originally developed by Vaclav Slavik. WinSparkle is an update framework for Windows. 
+Pywinsparkle is a wrapper for the WinSparkle project originally developed by Vaclav Slavik. WinSparkle is an update framework for Windows.
 
 The original WinSparkle project is located here: https://winsparkle.org/
 
 github: https://github.com/vslavik/winsparkle
 
-The current version of PyWinSparkle includes WinSparkle 0.6.0
+The current version of PyWinSparkle includes WinSparkle 0.9.2
 
 Note: This is package is not affiliated with the original developer Vaclac Slavik and is therefore technically unofficial.
 
 ### Installation
-
 
 `pip install pywinsparkle`
 
@@ -25,9 +22,7 @@ Wheels are built for 32bit and 64bit versions of Windows, covering Python 2.7 an
 
 Note: If you are using one of the above versions pip throws and errror, consider upgrading pip with `pip install --upgrade pip`
 
-
 ### Usage
-
 
 All of the API function wrapper names are the same as the original WinSparkle project. The only difference
 is in the argument types which are either python strings or integers. For the callback functions, just the function
@@ -95,7 +90,7 @@ def main():
     # check for updates
     pywinsparkle.win_sparkle_check_update_with_ui()
 
-    # alternatively you could check for updates in the 
+    # alternatively you could check for updates in the
     # background silently
     pywinsparkle.win_sparkle_check_update_without_ui()
 
@@ -112,11 +107,9 @@ if __name__ == "__main__":
 
 The documentation for the API can be found at: <http://pythonhosted.org/pywinsparkle>
 
-
 ### Freezing with Pyinstaller
 
-
-Add an entry to .SPEC in Analysis for binaries. 
+Add an entry to .SPEC in Analysis for binaries.
 
 Assuming you are using a virtual environment and it is called "venv" it would look like this:
 
@@ -142,6 +135,6 @@ a = Analysis(['Updater\\src\\main.py'],
              cipher=block_cipher)
 ```
 
-The package contains DLL's for both 64bit and 32bit versions of python. Adding the 
-preceding code snippet makes it possible to switch between versions of python 
+The package contains DLL's for both 64bit and 32bit versions of python. Adding the
+preceding code snippet makes it possible to switch between versions of python
 seamlessly.
